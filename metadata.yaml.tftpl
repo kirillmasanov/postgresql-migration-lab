@@ -1,0 +1,46 @@
+#cloud-config
+datasource:
+  Ec2:
+    strict_id: false
+ssh_pwauth: no
+users:
+- name: ${user}
+  sudo: 'ALL=(ALL) NOPASSWD:ALL'
+  shell: /bin/bash
+  ssh_authorized_keys:
+  - ${pubkey}
+
+write_files:
+  - path: /usr/local/etc/postgresql-setup.sh
+    permissions: "755"
+    content: |
+      #!/bin/bash
+
+      apt-get update
+      apt-get install -y postgresql postgresql-contrib
+
+      systemctl enable postgresql
+      systemctl start postgresql
+
+      # Создание пользователя и базы данных
+      sudo -u postgres psql -c "CREATE USER ${pg_user} WITH PASSWORD '${pg_pass}';"
+      sudo -u postgres psql -c "CREATE DATABASE ${pg_db} OWNER ${pg_user};"
+
+      # Создание таблицы и наполнение данными
+      sudo -u postgres psql -d ${pg_db} -c "
+      CREATE TABLE employees (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        position TEXT,
+        salary INT
+      );
+
+      INSERT INTO employees (name, position, salary) VALUES
+        ('Alice', 'Engineer', 70000),
+        ('Bob', 'Manager', 85000),
+        ('Charlie', 'Analyst', 60000),
+        ('Diana', 'Designer', 65000),
+        ('Eve', 'DevOps', 80000);
+      "
+runcmd:
+  - ["/usr/local/etc/postgresql-setup.sh"]

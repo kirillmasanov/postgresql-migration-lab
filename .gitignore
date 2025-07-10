@@ -1,0 +1,24 @@
+# Локальные terraform файлы состояния
+*.tfstate
+*.tfstate.*
+
+# Локальные terraform настройки
+.terraform/
+.terraform.lock.hcl
+
+# Переменные окружения и чувствительные данные
+*.tfvars
+*.tfvars.json
+
+# Файлы плана и отладочной информации
+crash.log
+terraform.tfplan
+*.backup
+
+# IDE файлы
+.vscode/
+.idea/
+*.swp
+
+# MacOS системные файлы
+.DS_Store
