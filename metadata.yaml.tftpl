@@ -15,32 +15,67 @@ write_files:
     permissions: "755"
     content: |
       #!/bin/bash
+      set -eux
 
+      PG_USER="${pg_user}"
+      PG_PASS="${pg_pass}"
+      PG_DB="${pg_db}"
+      PG_SCHEMA="public"
+      PG_SUBNET="${pg_subnet}"
+
+      # 1. Установка PostgreSQL 16
       apt-get update
-      apt-get install -y postgresql postgresql-contrib
+      apt-get install -y postgresql-16 postgresql-contrib postgresql-16-wal2json
+
+      # 2. Настройка конфигов для сетевых подключений
+      PG_CONF="/etc/postgresql/$(ls /etc/postgresql)/main/postgresql.conf"
+      sed -ri "s/^#?(listen_addresses\s*=\s*)'.*'/\1'*'/" "$PG_CONF"
+
+      PG_HBA="/etc/postgresql/$(ls /etc/postgresql)/main/pg_hba.conf"
+      echo "host    all             all             $PG_SUBNET              md5" >> "$PG_HBA"
+      echo "host    replication     all             $PG_SUBNET              md5" >> "$PG_HBA"
+      
+      grep -q "^wal_level\s*=" "$PG_CONF" && sed -i "s/^wal_level\s*=.*/wal_level = logical/" "$PG_CONF" || echo "wal_level = logical" >> "$PG_CONF"
 
       systemctl enable postgresql
-      systemctl start postgresql
+      systemctl restart postgresql
 
-      # Создание пользователя и базы данных
-      sudo -u postgres psql -c "CREATE USER ${pg_user} WITH PASSWORD '${pg_pass}';"
-      sudo -u postgres psql -c "CREATE DATABASE ${pg_db} OWNER ${pg_user};"
+      # 3. Создание базы и пользователя для Репликации и Копирования
+      sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$PG_DB'" | grep -q 1 || \
+        sudo -u postgres psql -c "CREATE DATABASE \"$PG_DB\";"
 
-      # Создание таблицы и наполнение данными
-      sudo -u postgres psql -d ${pg_db} -c "
-      CREATE TABLE employees (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        position TEXT,
-        salary INT
-      );
+      USER_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$PG_USER';")
+      if [ "$USER_EXISTS" != "1" ]; then
+        sudo -u postgres psql -c "CREATE ROLE \"$PG_USER\" WITH REPLICATION LOGIN ENCRYPTED PASSWORD '$PG_PASS';"
+      fi
 
-      INSERT INTO employees (name, position, salary) VALUES
-        ('Alice', 'Engineer', 70000),
-        ('Bob', 'Manager', 85000),
-        ('Charlie', 'Analyst', 60000),
-        ('Diana', 'Designer', 65000),
-        ('Eve', 'DevOps', 80000);
+      # Назначаем владельца базы
+      sudo -u postgres psql -c "ALTER DATABASE \"$PG_DB\" OWNER TO \"$PG_USER\";"
+
+      # Привилегии: CONNECT к базе, ALL на схему, SELECT на таблицы и последовательности
+      sudo -u postgres psql -c "GRANT CONNECT ON DATABASE \"$PG_DB\" TO \"$PG_USER\";"
+      sudo -u postgres psql -d "$PG_DB" -c "GRANT ALL PRIVILEGES ON SCHEMA $PG_SCHEMA TO \"$PG_USER\";"
+      sudo -u postgres psql -d "$PG_DB" -c "GRANT SELECT ON ALL TABLES IN SCHEMA $PG_SCHEMA TO \"$PG_USER\";"
+      sudo -u postgres psql -d "$PG_DB" -c "GRANT SELECT ON ALL SEQUENCES IN SCHEMA $PG_SCHEMA TO \"$PG_USER\";"
+      # Тестовая таблица:
+
+      export PGPASSWORD="$PG_PASS"
+      psql -h localhost -U "$PG_USER" -d "$PG_DB" -c "
+        CREATE TABLE IF NOT EXISTS employees (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          position TEXT,
+          salary INT
+        );
+        INSERT INTO employees (name, position, salary) VALUES
+          ('Alice', 'Engineer', 70000),
+          ('Bob', 'Manager', 85000),
+          ('Charlie', 'Analyst', 60000),
+          ('Diana', 'Designer', 65000),
+          ('Eve', 'DevOps', 80000)
+        ON CONFLICT DO NOTHING;
       "
+      unset PGPASSWORD
+
 runcmd:
   - ["/usr/local/etc/postgresql-setup.sh"]

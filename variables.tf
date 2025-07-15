@@ -23,11 +23,6 @@ variable "ssh_public_key" {
   type        = string
 }
 
-variable "my_public_ip" {
-  description = "Your public IP address for SSH access"
-  type        = string
-}
-
 variable "pg_user" {
   description = "PostgreSQL user"
   type        = string
@@ -42,4 +37,5 @@ variable "pg_password" {
 variable "pg_database" {
   description = "PostgreSQL DB name"
   type        = string
+  default     = "migration_db"
 }
