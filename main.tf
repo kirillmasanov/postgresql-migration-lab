@@ -94,50 +94,50 @@ resource "yandex_compute_instance" "source_db" {
   }
 }
 
-# ============ Managed PostreSQL cluster setup ============
+============ Managed PostreSQL cluster setup ============
 
-# resource "yandex_mdb_postgresql_cluster" "target_db" {
-#   name               = "target-db-cluster"
-#   environment        = "PRODUCTION"
-#   network_id         = yandex_vpc_network.migration_network.id
-#   security_group_ids = [yandex_vpc_security_group.managed_pg_sg.id]
+resource "yandex_mdb_postgresql_cluster" "target_db" {
+  name               = "target-db-cluster"
+  environment        = "PRODUCTION"
+  network_id         = yandex_vpc_network.migration_network.id
+  security_group_ids = [yandex_vpc_security_group.managed_pg_sg.id]
 
-#   config {
-#     version = 16
-#     resources {
-#       resource_preset_id = "s2.micro"
-#       disk_type_id       = "network-ssd"
-#       disk_size          = 20
-#     }
+  config {
+    version = 16
+    resources {
+      resource_preset_id = "s2.micro"
+      disk_type_id       = "network-ssd"
+      disk_size          = 20
+    }
 
-#     access {
-#       web_sql       = true
-#       data_transfer = true
-#     }
+    access {
+      web_sql       = true
+      data_transfer = true
+    }
 
-#     postgresql_config = {
-#       max_connections                   = 100
-#       enable_parallel_hash              = true
-#       vacuum_cleanup_index_scale_factor = 0.2
-#       default_transaction_isolation     = "TRANSACTION_ISOLATION_READ_COMMITTED"
-#     }
-#   }
+    postgresql_config = {
+      max_connections                   = 100
+      enable_parallel_hash              = true
+      vacuum_cleanup_index_scale_factor = 0.2
+      default_transaction_isolation     = "TRANSACTION_ISOLATION_READ_COMMITTED"
+    }
+  }
 
-#   host {
-#     zone      = var.zone
-#     subnet_id = yandex_vpc_subnet.migration_subnet.id
-#   }
-# }
+  host {
+    zone      = var.zone
+    subnet_id = yandex_vpc_subnet.migration_subnet.id
+  }
+}
 
-# resource "yandex_mdb_postgresql_user" "admin_user" {
-#   cluster_id = yandex_mdb_postgresql_cluster.target_db.id
-#   name       = var.pg_user
-#   password   = var.pg_password
-# }
+resource "yandex_mdb_postgresql_user" "admin_user" {
+  cluster_id = yandex_mdb_postgresql_cluster.target_db.id
+  name       = var.pg_user
+  password   = var.pg_password
+}
 
-# resource "yandex_mdb_postgresql_database" "migration_db" {
-#   cluster_id = yandex_mdb_postgresql_cluster.target_db.id
-#   name       = var.pg_database
-#   owner      = yandex_mdb_postgresql_user.admin_user.name
-#   depends_on = [yandex_mdb_postgresql_user.admin_user]
-# }
+resource "yandex_mdb_postgresql_database" "migration_db" {
+  cluster_id = yandex_mdb_postgresql_cluster.target_db.id
+  name       = var.pg_database
+  owner      = yandex_mdb_postgresql_user.admin_user.name
+  depends_on = [yandex_mdb_postgresql_user.admin_user]
+}
