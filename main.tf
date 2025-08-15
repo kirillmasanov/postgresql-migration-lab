@@ -118,7 +118,6 @@ resource "yandex_mdb_postgresql_cluster" "target_db" {
     postgresql_config = {
       max_connections                   = 100
       enable_parallel_hash              = true
-      vacuum_cleanup_index_scale_factor = 0.2
       default_transaction_isolation     = "TRANSACTION_ISOLATION_READ_COMMITTED"
     }
   }
