@@ -94,7 +94,7 @@ resource "yandex_compute_instance" "source_db" {
   }
 }
 
-============ Managed PostreSQL cluster setup ============
+# ============ Managed PostreSQL cluster setup ============
 
 resource "yandex_mdb_postgresql_cluster" "target_db" {
   name               = "target-db-cluster"
