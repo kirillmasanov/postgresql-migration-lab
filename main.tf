@@ -27,6 +27,11 @@ resource "yandex_vpc_security_group" "vm_sg" {
     v4_cidr_blocks = [yandex_vpc_subnet.migration_subnet.v4_cidr_blocks[0]]
   }
 
+  ingress {
+    protocol       = "ICMP"
+    v4_cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     protocol       = "ANY"
     v4_cidr_blocks = ["0.0.0.0/0"]
